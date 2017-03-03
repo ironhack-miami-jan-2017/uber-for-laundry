@@ -7,6 +7,10 @@ var bodyParser = require('body-parser');
 const expressLayouts = require('express-ejs-layouts');
 const mongoose = require('mongoose');
 const dotenv = require('dotenv');
+const session = require('express-session');
+const flash = require('connect-flash');
+const passport = require('passport');
+const LocalStrategy = require('passport-local').Strategy;
 
 
 dotenv.config();
@@ -32,6 +36,51 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
+app.use(session({
+  secret: 'uber for laundry and stuff pls',
+  resave: true,
+  saveUninitialized: true
+}));
+app.use(flash());
+
+app.use(passport.initialize());
+app.use(passport.session());
+
+    // <input type="email" name="email" id="email-input">
+    //                             |
+    //                     ---------
+    //                     |
+    // { usernameField: 'email' },
+passport.use(new LocalStrategy(
+  { usernameField: 'email' },
+  (email, password, next) => {
+    User.findOne({ email: email }, (err, user) => {
+      if (err) {
+        next(err);
+      } else if (!user) {
+        next(null, false, { message: "Incorrect email" });
+      } else if (!bcrypt.compareSync(password, user.password)) {
+        next(null, false, { message: "Incorrect password" });
+      } else {
+        next(null, user);
+      }
+    });
+  }
+));
+
+passport.serializeUser((user, cb) => {
+  cb(null, user._id);
+});
+
+passport.deserializeUser((id, cb) => {
+  User.findOne({ "_id": id }, (err, user) => {
+    if (err) {
+      cb(err);
+      return;
+    }
+    cb(null, user);
+  });
+});
 
 
 app.use('/', index);
